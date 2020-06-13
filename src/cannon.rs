@@ -1,3 +1,5 @@
+use std::mem::drop;
+
 use amethyst::{
     assets::{AssetStorage, Handle, Loader},
     core::transform::Transform,
@@ -7,10 +9,13 @@ use amethyst::{
 };
 
 pub const ARENA_HEIGHT: f32 = 100.0;
-pub const ARENA_WIDTH: f32 = 100.0;
+pub const ARENA_WIDTH: f32 = 125.0;
 
-pub const PADDLE_HEIGHT: f32 = 16.0;
-pub const PADDLE_WIDTH: f32 = 4.0;
+pub const BALL_VELOCITY_X: f32 = 75.0;
+pub const BALL_VELOCITY_Y: f32 = 50.0;
+pub const BALL_RADIUS: f32 = 5.0;
+
+pub const NUGGET_RADIUS: f32 = 5.0;
 
 pub struct Pong;
 
@@ -20,30 +25,48 @@ impl SimpleState for Pong {
 
         let sprite_sheet_handle = load_sprite_sheet(world);
 
-        world.register::<Paddle>();
+        world.register::<Ball>();
+        world.register::<Nugget>();
 
-        initialise_paddles(world, sprite_sheet_handle);
+        initialise_paddles(world, sprite_sheet_handle.clone());
+        initialise_nuggets(world, sprite_sheet_handle);
         initialise_camera(world);
     }
 }
 
-
-
-pub struct Paddle {
-    pub width: f32,
-    pub height: f32,
+pub struct Ball {
+    pub velocity: [f32; 2],
+    pub radius: f32,
 }
 
-impl Paddle {
-    fn new() -> Paddle {
-        Paddle {
-            width: PADDLE_WIDTH,
-            height: PADDLE_HEIGHT,
+pub struct Nugget {
+    pub radius: f32,
+}
+
+impl Nugget {
+    fn new() -> Nugget {Nugget {radius: BALL_RADIUS}}
+}
+
+impl Drop for Nugget {
+    fn drop(&mut self) {
+        println!("sprite deleting");
+    }
+}
+
+impl Ball {
+    fn new() -> Ball {
+        Ball {
+            velocity: [BALL_VELOCITY_X, BALL_VELOCITY_Y],
+            radius: BALL_RADIUS,
         }
     }
 }
 
-impl Component for Paddle {
+impl Component for Ball {
+    type Storage = DenseVecStorage<Self>;
+}
+
+impl Component for Nugget {
     type Storage = DenseVecStorage<Self>;
 }
 
@@ -52,7 +75,7 @@ fn load_sprite_sheet(world: &mut World) -> Handle<SpriteSheet> {
         let loader = world.read_resource::<Loader>();
         let texture_storage = world.read_resource::<AssetStorage<Texture>>();
         loader.load(
-            "texture/pong_spritesheet.png",
+            "texture/spritesheet.png",
             ImageFormat::default(),
             (),
             &texture_storage,
@@ -82,21 +105,39 @@ fn initialise_camera(world: &mut World) {
 }
 
 fn initialise_paddles(world: &mut World, sprite_sheet_handle: Handle<SpriteSheet>) {
-    let mut transform = Transform::default();
+    // Create the translation.
+    let mut local_transform = Transform::default();
+    local_transform.set_translation_xyz(ARENA_WIDTH / 2.0, ARENA_HEIGHT / 2.0, 0.0);
 
-    let y = ARENA_HEIGHT / 2.0;
-    transform.set_translation_xyz(PADDLE_WIDTH * 12.5, y, 0.0);
-
+    // Assign the sprite for the ball
     let sprite_render = SpriteRender {
         sprite_sheet: sprite_sheet_handle,
-        sprite_number: 0,
+        sprite_number: 1, // ball is the second sprite on the sprite sheet
     };
-
 
     world
         .create_entity()
-        .with(sprite_render.clone())
-        .with(Paddle::new())
-        .with(transform)
+        .with(sprite_render)
+        .with(Ball::new())
+        .with(local_transform)
+        .build();
+}
+
+fn initialise_nuggets(world: &mut World, sprite_sheet_handle: Handle<SpriteSheet>) {
+    // Create the translation.
+    let mut local_transform = Transform::default();
+    local_transform.set_translation_xyz(31.0, 88.0, 0.0);
+
+    // Assign the sprite for the ball
+    let sprite_render = SpriteRender {
+        sprite_sheet: sprite_sheet_handle,
+        sprite_number: 1, // ball is the second sprite on the sprite sheet
+    };
+
+    world
+        .create_entity()
+        .with(sprite_render)
+        .with(Nugget::new())
+        .with(local_transform)
         .build();
 }
